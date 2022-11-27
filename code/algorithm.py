@@ -95,7 +95,7 @@ class Algorithm:
             n=1, 
             lw=3, 
             categorical=False,
-            title="Partial Dependence",
+            title="Accumulated Local Effects",
             legend_loc=0,
             figsize=(9, 6), # 7.2, 4.8
             savefig=None

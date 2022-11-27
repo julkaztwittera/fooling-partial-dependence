@@ -71,7 +71,7 @@ class GradientAlgorithm(algorithm.Algorithm):
         pbar = tqdm.tqdm(range(1, max_iter + 1), disable=not verbose)
         for i in pbar:
             # gradient of output w.r.t input
-            _ = self._calculate_gradient(self._X_changed)
+            # _ = self._calculate_gradient(self._X_changed)
             d_output_input_long = self._calculate_gradient_long(self._X_changed)
             self.result_explanation['changed'] = self.explainer.pd(
                 self._X_changed, 
@@ -166,13 +166,14 @@ class GradientAlgorithm(algorithm.Algorithm):
         return d_loss
 
     def _initialize(self):
+        import copy
         _X_std = self._X.std(axis=0) * 1/9
         _X_std[self._idv] = 0
         if self._idc is not None:
             for c in self._idc:
                 _X_std[c] = 0        
         _theta = np.random.normal(loc=0, scale=_X_std, size=self._X.shape)
-        self._X_changed = self._X + _theta
+        self._X_changed = copy.deepcopy(self._X)# + _theta
 
     #:# helper
               

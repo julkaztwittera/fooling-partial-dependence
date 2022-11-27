@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import warnings
+import dalex
 
 class Explainer:
     def __init__(self, model, data, predict_function=None):
@@ -71,47 +72,38 @@ class Explainer:
     # ************* pd *************** #
 
     def pd(self, X, idv, grid):
-        """
-        numpy implementation of pd calculation for 1 variable 
-        
-        takes:
-        X - np.ndarray (2d), data
-        idv - int, index of variable to calculate profile
-        
-        returns:
-        y - np.ndarray (1d), vector of pd profile values
-        """
-        
-        grid_points = len(grid)
-        # take grid_points of each observation in X
-        X_long = np.repeat(X, grid_points, axis=0)
-        # take grid for each observation
-        grid_long = np.tile(grid.reshape((-1, 1)), (X.shape[0], 1))
-        # merge X and grid in long format
-        X_long[:, [idv]] = grid_long
-        # calculate ceteris paribus
-        y_long = self.predict(X_long)
-        # calculate partial dependence
-        y = y_long.reshape(X.shape[0], grid_points).mean(axis=0)
 
-        return y
+        X = pd.DataFrame(data=X, index=range(X.shape[0]), columns=range(X.shape[1]))
+        # print(X)
+        explainer = dalex.Explainer(self.model, X, verbose=False)
 
-    def pd_pop(self, X_pop, idv, grid):
-        """
-        vectorized (whole population) pd calculation for 1 variable
-        """
-        grid_points = len(grid)
-        # take grid_points of each observation in X
-        X_pop_long = np.repeat(X_pop, grid_points, axis=1)
-        # take grid for each observation
-        grid_pop_long = np.tile(grid.reshape((-1, 1)), (X_pop.shape[0], X_pop.shape[1], 1))
-        # merge X and grid in long format
-        X_pop_long[:, :, [idv]] = grid_pop_long
-        # calculate ceteris paribus
-        y_pop_long = self.predict(
-            X_pop_long.reshape(X_pop_long.shape[0] * X_pop_long.shape[1], X_pop_long.shape[2])
-        ).reshape((X_pop_long.shape[0], X_pop.shape[1], grid_points))
-        # calculate partial dependence
-        y = y_pop_long.mean(axis=1)
+        ld_rf = explainer.model_profile(type = 'accumulated', variables=[idv], grid_points=len(grid), verbose=False)
+        
+        # print(ld_rf.result)
 
-        return y
+        output = ld_rf.result['_yhat_'].to_numpy()
+
+        # print(output.shape)
+
+        return output
+
+
+    # def pd_pop(self, X_pop, idv, grid):
+    #     """
+    #     vectorized (whole population) pd calculation for 1 variable
+    #     """
+    #     grid_points = len(grid)
+    #     # take grid_points of each observation in X
+    #     X_pop_long = np.repeat(X_pop, grid_points, axis=1)
+    #     # take grid for each observation
+    #     grid_pop_long = np.tile(grid.reshape((-1, 1)), (X_pop.shape[0], X_pop.shape[1], 1))
+    #     # merge X and grid in long format
+    #     X_pop_long[:, :, [idv]] = grid_pop_long
+    #     # calculate ceteris paribus
+    #     y_pop_long = self.predict(
+    #         X_pop_long.reshape(X_pop_long.shape[0] * X_pop_long.shape[1], X_pop_long.shape[2])
+    #     ).reshape((X_pop_long.shape[0], X_pop.shape[1], grid_points))
+    #     # calculate partial dependence
+    #     y = y_pop_long.mean(axis=1)
+
+    #     return y
