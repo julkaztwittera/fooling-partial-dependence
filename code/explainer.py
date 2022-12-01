@@ -3,7 +3,6 @@ from copy import deepcopy
 import pandas as pd
 import warnings
 
-
 class Explainer:
     def __init__(self, model, data, predict_function=None):
         self.model = model
@@ -141,6 +140,13 @@ class Explainer:
         returns:
         y - np.ndarray (1d), vector of pd profile values
         """
+
+        import copy
+
+        grid_copy = copy.deepcopy(grid)
+        X_copy = copy.deepcopy(X)
+        idv_copy = copy.deepcopy(idv)
+        # print(grid)
 
         grid_copy = deepcopy(grid)
         X_copy = deepcopy(X)
