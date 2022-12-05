@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import copy
 
 
 class Algorithm:
@@ -65,6 +66,7 @@ class Algorithm:
         for explanation_name, result_explanation in zip(
             self.result_explanations.keys(), self.result_explanations.values()
         ):
+
             explanation_func = getattr(self.explainer, explanation_name)
             result_explanation["original"] = explanation_func(
                 X=self._X, idv=self._idv, grid=result_explanation["grid"]

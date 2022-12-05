@@ -5,6 +5,7 @@ import tqdm
 from . import algorithm
 from . import loss
 from . import utils
+import copy
 
 try:
     import tensorflow as tf
@@ -80,7 +81,7 @@ class GradientAlgorithm(algorithm.Algorithm):
             pbar = tqdm.tqdm(range(1, max_iter + 1), disable=not verbose)
             for i in pbar:
                 # gradient of output w.r.t input
-                _ = self._calculate_gradient(self._X_changed)
+                # _ = self._calculate_gradient(self._X_changed)
                 d_output_input_long = self._calculate_gradient_long(
                     result_explanation, self._X_changed
                 )
@@ -149,16 +150,28 @@ class GradientAlgorithm(algorithm.Algorithm):
 
     def _calculate_gradient(self, data):
         # gradient of output w.r.t input
+
         input = tf.convert_to_tensor(data)
         with tf.GradientTape() as t:
             t.watch(input)
+
+
+
+
             output = self.explainer.model(input)
             d_output_input = t.gradient(output, input).numpy()
         return d_output_input
 
     def _calculate_gradient_long(self, result_explanation, data):
         # gradient of output w.r.t input with changed idv to splits
-        data_long = np.repeat(data, self._n_grid_points, axis=0)
+
+        data_copy = copy.deepcopy(data)
+        for i in range(data_copy.shape[1]):
+            print(i)
+            data_copy[i] = tf.math.sigmoid(data_copy[i])
+            data_copy[i] = self.explainer.unnormalizator[i](data_copy[i])
+
+        data_long = np.repeat(data_copy, self._n_grid_points, axis=0)
         # take splits for each observation
         grid_long = np.tile(result_explanation["grid"], self._n)
         data_long[:, self._idv] = grid_long

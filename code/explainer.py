@@ -1,22 +1,53 @@
 import numpy as np
 import pandas as pd
 import warnings
+import tensorflow as tf
+import copy
+
+def logit(x):
+    """ Computes the logit function, i.e. the logistic sigmoid inverse. """
+    return - tf.math.log(1. / x - 1.)
+
+def sigmoid(x):
+    return tf.math.sigmoid(x)
+
 
 class Explainer:
     def __init__(self, model, data, predict_function=None):
         self.model = model
 
-        if isinstance(data, pd.DataFrame):
-            self.data = data
-        elif isinstance(data, np.ndarray):
+        self.data = data
+        data_copy = copy.deepcopy(data)
+
+
+        if isinstance(data_copy, pd.DataFrame):
+            self.data_copy = data_copy
+        elif isinstance(data_copy, np.ndarray):
             warnings.warn("`data` is a numpy.ndarray -> coercing to pandas.DataFrame.")
-            self.data = pd.DataFrame(data)
+            self.data_copy = pd.DataFrame(data_copy)
         else:
             raise TypeError(
                 "`data` is a "
-                + str(type(data))
+                + str(type(data_copy))
                 + ", and it should be a pandas.DataFrame."
             )
+
+        self.normalizator = [ lambda x, i=i: (x-data_copy[i].min())/(data_copy[i].max() - data_copy[i].min()) for i in data_copy.columns]
+
+        self.unnormalizator = [lambda x, i=i: x*(data_copy[i].max() - data_copy[i].min())  + data_copy[i].min() for i in data_copy.columns]
+
+        for i, column in enumerate(data_copy.columns):
+            print(f'{i}: {column}')
+            data_copy[column] = self.normalizator[i](data_copy[column])
+
+
+            data_copy.loc[data_copy[column]>0.999, column] = 1.0 - 1e-9
+            data_copy.loc[data_copy[column]<0.001, column] = 1e-9
+
+            data_copy[column] = logit(data_copy[column])
+
+ 
+
 
         if predict_function:
             self.predict_function = predict_function
@@ -57,7 +88,7 @@ class Explainer:
                     )
 
         try:
-            pred = self.predict(data.values)
+            pred = self.predict(data_copy.values)
         except:
             raise ValueError("`predict_function(model, data)` returns an error.")
         if not isinstance(pred, np.ndarray):
@@ -74,7 +105,11 @@ class Explainer:
             )
 
     def predict(self, data):
-        return self.predict_function(self.model, data)
+        data_copy = copy.deepcopy(data)
+        for i in range(data_copy.shape[1]):
+            data_copy[i] = sigmoid(data_copy[i])
+            data_copy[i] = self.unnormalizator[i](data_copy[i])
+        return self.predict_function(self.model, data_copy)
 
     # ************* pd *************** #
 
