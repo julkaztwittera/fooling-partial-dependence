@@ -4,9 +4,11 @@ import warnings
 import tensorflow as tf
 from copy import deepcopy
 
+
 def logit(x):
-    """ Computes the logit function, i.e. the logistic sigmoid inverse. """
-    return - tf.math.log(1. / x - 1.)
+    """Computes the logit function, i.e. the logistic sigmoid inverse."""
+    return -tf.math.log(1.0 / x - 1.0)
+
 
 def sigmoid(x):
     return tf.math.sigmoid(x)
@@ -18,7 +20,6 @@ class Explainer:
 
         self.data = data
         data_copy = deepcopy(data)
-
 
         if isinstance(data_copy, pd.DataFrame):
             self.data_copy = data_copy
@@ -32,22 +33,25 @@ class Explainer:
                 + ", and it should be a pandas.DataFrame."
             )
 
-        self.normalizator = [ lambda x, i=i: (x-data_copy[i].min())/(data_copy[i].max() - data_copy[i].min()) for i in data_copy.columns]
+        self.normalizator = [
+            lambda x, i=i: (x - data_copy[i].min())
+            / (data_copy[i].max() - data_copy[i].min())
+            for i in data_copy.columns
+        ]
 
-        self.unnormalizator = [lambda x, i=i: x*(data_copy[i].max() - data_copy[i].min())  + data_copy[i].min() for i in data_copy.columns]
+        self.unnormalizator = [
+            lambda x, i=i: x * (data_copy[i].max() - data_copy[i].min())
+            + data_copy[i].min()
+            for i in data_copy.columns
+        ]
 
         for i, column in enumerate(data_copy.columns):
-            print(f'{i}: {column}')
             data_copy[column] = self.normalizator[i](data_copy[column])
 
-
-            data_copy.loc[data_copy[column]>0.999, column] = 1.0 - 1e-9
-            data_copy.loc[data_copy[column]<0.001, column] = 1e-9
+            data_copy.loc[data_copy[column] > 0.999, column] = 1.0 - 1e-9
+            data_copy.loc[data_copy[column] < 0.001, column] = 1e-9
 
             data_copy[column] = logit(data_copy[column])
-
- 
-
 
         if predict_function:
             self.predict_function = predict_function
@@ -189,6 +193,7 @@ class Explainer:
 
         X_copy[:, idv_copy] = grid_copy[b - 1]
         X_copy_2[:, idv_copy] = grid_copy[b]
+
         diff = self.predict(X_copy_2) - self.predict(X_copy)
 
         local_effects = np.nan_to_num(
