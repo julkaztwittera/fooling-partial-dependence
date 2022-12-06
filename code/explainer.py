@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import warnings
 import tensorflow as tf
-import copy
+from copy import deepcopy
 
 def logit(x):
     """ Computes the logit function, i.e. the logistic sigmoid inverse. """
@@ -17,7 +17,7 @@ class Explainer:
         self.model = model
 
         self.data = data
-        data_copy = copy.deepcopy(data)
+        data_copy = deepcopy(data)
 
 
         if isinstance(data_copy, pd.DataFrame):
@@ -105,7 +105,7 @@ class Explainer:
             )
 
     def predict(self, data):
-        data_copy = copy.deepcopy(data)
+        data_copy = deepcopy(data)
         for i in range(data_copy.shape[1]):
             data_copy[i] = sigmoid(data_copy[i])
             data_copy[i] = self.unnormalizator[i](data_copy[i])
@@ -174,73 +174,31 @@ class Explainer:
         returns:
         y - np.ndarray (1d), vector of pd profile values
         """
+        grid_copy = deepcopy(grid)
+        X_copy = deepcopy(X)
+        idv_copy = deepcopy(idv)
 
-        import copy
-
-        grid_copy = copy.deepcopy(grid)
-        X_copy = copy.deepcopy(X)
-        idv_copy = copy.deepcopy(idv)
-        # print(grid)
-
-        grid_points = len(grid)
-        grid_copy[0]-=0.0001
-        grid_copy[-1]+=0.0001
-        # TODO przypadek większe niż ostatni punkt z grida (osobno?)
-        # X: (liczba obserwacji, liczba featureów)
-
-        #grid_pairs = zip(grid, grid[1:])
-
-
+        grid_copy[0] -= 0.0001
+        grid_copy[-1] += 0.0001
 
         bins = grid_copy
 
-        X_copy_2 = copy.deepcopy(X_copy)
+        X_copy_2 = deepcopy(X_copy)
 
         b = np.digitize(X[:, idv_copy], bins, right=True)
-        
-        X_copy[:,idv_copy] = grid_copy[b-1]
-        X_copy_2[:,idv_copy] = grid_copy[b]
+
+        X_copy[:, idv_copy] = grid_copy[b - 1]
+        X_copy_2[:, idv_copy] = grid_copy[b]
         diff = self.predict(X_copy_2) - self.predict(X_copy)
-        # print(diff[X_copy[:,idv]==grid[0]])
-        # print(diff[X_copy[:,idv]==grid[0]])
 
-        local_effects = np.nan_to_num(np.bincount(b-1, weights = diff, minlength=20) / np.bincount(b-1, minlength=20))
+        local_effects = np.nan_to_num(
+            np.bincount(b - 1, weights=diff, minlength=20)
+            / np.bincount(b - 1, minlength=20)
+        )
         y = np.cumsum(local_effects)
-        z = copy.deepcopy(y)
-        z = np.append(z, [z[-1]])
 
-        # grid = grid_copy
-        # # X_sorted = X[X[:, idv].argsort()]
-        # local_effects = np.zeros_like(grid)
-
-        # for i, (first, second) in enumerate(zip(grid, grid[1:])):
-        #     # TODO edge case gdzie neighbors jest puste
-        #     neighbors = X[(X[:, idv] > first) & (X[:, idv] <= second)]
-
-        #     if neighbors.shape[0] == 0:
-        #         continue
-
-        #     neighbors_first = np.copy(neighbors)
-        #     neighbors_second = np.copy(neighbors)
-        #     neighbors_first[:, idv] = first
-        #     neighbors_second[:, idv] = second
-        #     # print(neighbors_first)
-        #     # print(neighbors_second)
-        #     # print(self.predict(neighbors_second) - self.predict(neighbors_first))
-        #     #assert False
-        #     result = (
-        #         self.predict(neighbors_second) - self.predict(neighbors_first)
-        #     ).mean()
-        #     local_effects[i] = result
-
-        # y = np.cumsum(local_effects)
-        # print('y')
-        # print(y)
-        # print('z')
-        # print(z)
-
-        # assert np.allclose(y, z, atol = 1e-6), f'y={y}, z={z}, y-z={y-z}'
-
-        # print(y-z)
+        c = np.dot(np.bincount(b - 1), y) / X_copy.shape[0]
+        z = deepcopy(y)
+        z = np.append(z, [z[-1]]) - c
 
         return z
