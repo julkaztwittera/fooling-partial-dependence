@@ -45,8 +45,12 @@ class Explainer:
             for i in data_copy.columns
         ]
 
-        for i, column in enumerate(data_copy.columns):
-            data_copy[column] = self.normalizator[i](data_copy[column])
+        for column in data_copy.columns:
+            data_copy[column] = [
+                (data_copy[column][i] - data[column].min())
+                / (data[column].max() - data[column].min())
+            for i in range(data.shape[0])]
+            #data_copy[column] = self.normalizator[i](data_copy[column])
 
             data_copy.loc[data_copy[column] > 0.999, column] = 1.0 - 1e-9
             data_copy.loc[data_copy[column] < 0.001, column] = 1e-9
@@ -107,6 +111,7 @@ class Explainer:
                 + str(pred.shape)
                 + ", and it must return a (1d) numpy.ndarray."
             )
+        self.data = data_copy
 
     def predict(self, data):
         data_copy = deepcopy(data)

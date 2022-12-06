@@ -6,11 +6,13 @@
 
 import tensorflow as tf
 import argparse
+import os
 parser = argparse.ArgumentParser(description='main')
 parser.add_argument('--variable', default="age", type=str, help='variable')
 parser.add_argument('--strategy', default="target", type=str, help='strategy type')
 parser.add_argument('--iter', default=50, type=int, help='max iterations')
 parser.add_argument('--seed', default=0, type=int, help='random seed')
+parser.add_argument('--lr', default=0.1, type=float, help='learning rate for gradient algorithm')
 args = parser.parse_args()
 VARIABLE = args.variable
 
@@ -52,7 +54,7 @@ alg = code.GradientAlgorithm(
     explainer, 
     variable=VARIABLE,
     constant=CONSTANT,
-    learning_rate=0.1
+    learning_rate=args.lr
 )
 
 if args.strategy == "target":
