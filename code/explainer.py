@@ -34,28 +34,25 @@ class Explainer:
             )
 
         self.normalizator = [
-            lambda x, i=i: (x - data_copy[i].min())
-            / (data_copy[i].max() - data_copy[i].min())
-            for i in data_copy.columns
+            lambda x, c=c: (x - data_copy[c].min())
+            / (data_copy[c].max() - data_copy[c].min())
+            for c in data_copy.columns
         ]
 
         self.unnormalizator = [
-            lambda x, i=i: x * (data_copy[:, i].max() - data_copy[:, i].min())
-            + data_copy[:, i].min()
-            for i in data_copy.columns
+            lambda x, c=c: x * (data_copy[c].max() - data_copy[c].min())
+            + data_copy[c].min()
+            for c in data_copy.columns
         ]
 
-        for column in data_copy.columns:
-            data_copy[column] = [
-                (data_copy[column][i] - data[column].min())
-                / (data[column].max() - data[column].min())
-            for i in range(data.shape[0])]
-            #data_copy[column] = self.normalizator[i](data_copy[column])
+        for i, column in enumerate(data_copy.columns):
+            data_copy[column] = self.normalizator[i](data_copy[column])
 
             data_copy.loc[data_copy[column] > 0.999, column] = 1.0 - 1e-9
             data_copy.loc[data_copy[column] < 0.001, column] = 1e-9
 
             data_copy[column] = logit(data_copy[column])
+        self.data = data_copy
 
         if predict_function:
             self.predict_function = predict_function
@@ -111,17 +108,16 @@ class Explainer:
                 + str(pred.shape)
                 + ", and it must return a (1d) numpy.ndarray."
             )
-        self.data = data_copy
 
     def predict(self, data):
         data_copy = deepcopy(data)
         for i in range(data_copy.shape[1]):
             data_copy[:, i] = sigmoid(data_copy[:, i])
-            data_copy[:, i] = np.array([
-                data_copy[:, i] * (data[:, i].max() - data[:, i].min())
-                + data[:, i].min()
-            ])
-            # data_copy[:, i] = self.unnormalizator[i](data_copy[:,i])
+            # data_copy[:, i] = np.array([
+            #     data_copy[:, i] * (data[:, i].max() - data[:, i].min())
+            #     + data[:, i].min()
+            # ])
+            data_copy[:, i] = self.unnormalizator[i](data_copy[:, i])
         return self.predict_function(self.model, data_copy)
 
     # ************* pd *************** #
