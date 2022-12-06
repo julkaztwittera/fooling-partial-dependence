@@ -164,9 +164,12 @@ class GradientAlgorithm(algorithm.Algorithm):
 
         data_copy = copy.deepcopy(data)
         for i in range(data_copy.shape[1]):
-            data_copy[i] = tf.math.sigmoid(data_copy[i])
-            data_copy[i] = self.explainer.unnormalizator[i](data_copy[i])
-
+            data_copy[:,i] = tf.math.sigmoid(data_copy[:,i])
+            #data_copy[i] = self.explainer.unnormalizator[i](data_copy[i])
+            data_copy[:,i] = np.array([
+                data_copy[:, i] * (data[:, i].max() - data[:, i].min())
+                + data[:, i].min()
+            ])
         data_long = np.repeat(data_copy, self._n_grid_points, axis=0)
         # take splits for each observation
         grid_long = np.tile(result_explanation["grid"], self._n)
