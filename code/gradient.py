@@ -155,9 +155,6 @@ class GradientAlgorithm(algorithm.Algorithm):
         with tf.GradientTape() as t:
             t.watch(input)
 
-
-
-
             output = self.explainer.model(input)
             d_output_input = t.gradient(output, input).numpy()
         return d_output_input
@@ -167,7 +164,6 @@ class GradientAlgorithm(algorithm.Algorithm):
 
         data_copy = copy.deepcopy(data)
         for i in range(data_copy.shape[1]):
-            print(i)
             data_copy[i] = tf.math.sigmoid(data_copy[i])
             data_copy[i] = self.explainer.unnormalizator[i](data_copy[i])
 
