@@ -40,8 +40,8 @@ class Explainer:
         ]
 
         self.unnormalizator = [
-            lambda x, i=i: x * (data_copy[i].max() - data_copy[i].min())
-            + data_copy[i].min()
+            lambda x, i=i: x * (data_copy[:, i].max() - data_copy[:, i].min())
+            + data_copy[:, i].min()
             for i in data_copy.columns
         ]
 
@@ -111,8 +111,12 @@ class Explainer:
     def predict(self, data):
         data_copy = deepcopy(data)
         for i in range(data_copy.shape[1]):
-            data_copy[i] = sigmoid(data_copy[i])
-            data_copy[i] = self.unnormalizator[i](data_copy[i])
+            data_copy[:, i] = sigmoid(data_copy[:, i])
+            data_copy[:, i] = np.array([
+                data_copy[:, i] * (data[:, i].max() - data[:, i].min())
+                + data[:, i].min()
+            ])
+            # data_copy[:, i] = self.unnormalizator[i](data_copy[:,i])
         return self.predict_function(self.model, data_copy)
 
     # ************* pd *************** #
