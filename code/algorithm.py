@@ -3,6 +3,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from code.explainer import logit
+import tensorflow as tf
 
 
 class Algorithm:
@@ -52,17 +54,18 @@ class Algorithm:
 
         if grid is None:
             for result_explanation in self.result_explanations.values():
-                result_explanation["grid"] = np.linspace(
-                    self._X[:, self._idv].min(),
-                    self._X[:, self._idv].max(),
+                _grid = np.linspace(
+                    self._X_original[:, self._idv].min(),
+                    self._X_original[:, self._idv].max(),
                     self._n_grid_points,
                 )
-                # if self.explainer.constrain:
-                #     result_explanation["grid_original"] = np.linspace(
-                #                         self._X_original[:, self._idv].min(),
-                #                         self._X_original[:, self._idv].max(),
-                #                         self._n_grid_points,
-                #     )
+                _grid = self.explainer.normalizator[self._idv](_grid)
+
+                _grid[-1] = 1.0 - 1e-9
+                _grid[0] = 1e-9
+
+                _grid = np.array(logit(_grid))
+                result_explanation["grid"] = _grid
         else:
             NotImplementedError()
             if not isinstance(grid, np.ndarray):
@@ -273,6 +276,11 @@ class Algorithm:
             _colors = sns.color_palette("Set1").as_hex()[0:2][::-1]
             if i == 0:
                 _df = self.result_data[explanation_name]
+                _df_changed = _df.loc[_df["dataset"] == "changed"]
+                for i, c in enumerate(_df_changed.columns[:-1]):
+                    _df_changed[c] = tf.math.sigmoid(_df_changed[c]).numpy()
+                    _df_changed[c] = self.explainer.unnormalizator[i](_df_changed[c])
+                    _df.loc[_df["dataset"] == "changed", c] = _df_changed[c]
             else:
                 _data_changed = pd.DataFrame(
                     self.get_best_data(i), columns=self.explainer.data.columns

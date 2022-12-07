@@ -101,7 +101,14 @@ class GradientAlgorithm(algorithm.Algorithm):
                     result_explanation, d_output_input_long
                 )
                 step = self.params["optimizer"].calculate_step(d_loss)
+                print(self._X_changed[:2])
                 self._X_changed -= self.params["learning_rate"] * step
+                print(self._X_changed[:2])
+                print("loss sum", tf.math.reduce_sum(d_loss))
+                print(d_loss.shape, d_loss)
+                # print(d_output_input_long)
+                # print(tf.math.reduce_sum(d_output_input_long))
+                assert False
 
                 if j > 0:
                     self.append_losses(explanation_name)

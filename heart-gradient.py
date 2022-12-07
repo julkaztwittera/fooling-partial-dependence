@@ -28,6 +28,7 @@ VARIABLES = {
 }
 CONSTANT = ["sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal"]
 
+
 def arguments() -> Namespace:
     parser = ArgumentParser(description="main")
     parser.add_argument("--variable", default="age", type=str, help="variable")
@@ -74,7 +75,11 @@ if __name__ == "__main__":
     explainer = code.Explainer(model, X, constrain=args.constrain)
 
     alg = code.GradientAlgorithm(
-        explainer, variable=args.variable, constant=CONSTANT, learning_rate=args.lr
+        explainer,
+        variable=args.variable,
+        constant=CONSTANT,
+        learning_rate=args.lr,
+        explanation_names=["ale"],
     )
 
     if args.strategy == "target":
@@ -89,6 +94,10 @@ if __name__ == "__main__":
 
     alg.plot_losses(savefig=f"{BASE_DIR}/loss")
     alg.plot_explanation(savefig=f"{BASE_DIR}/expl")
-    alg.plot_other_explanation(savefig=f"{BASE_DIR}/expl")
+    # alg.plot_other_explanation(savefig=f"{BASE_DIR}/expl")
     alg.plot_data(constant=False, savefig=BASE_DIR)
-    alg.get_metrics(f"{BASE_DIR}/metrics.txt")
+    # alg.get_metrics(f"{BASE_DIR}/metrics.txt")
+    print(alg._X_changed)
+    _df = alg.result_data["ale"]
+    print(_df[303:])
+    print(_df)

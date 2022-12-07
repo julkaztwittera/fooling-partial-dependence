@@ -1,8 +1,16 @@
-pd L2: 1.6284613593597896e-05
-pd L1: 0.003073944943025708
-pd max diff: 0.005934357643127441
-pd Spearman R: 0.9986754966887418
-ale L2: 7.386063310524303e-06
-ale L1: 0.002530695039295838
-ale max diff: 0.0036575779434540275
-ale Spearman R: 1.0
+ALE L2: 2.8535994441024234e-05
+ALE L1: 0.004253237486124789
+ALE max diff: 0.011351429293737074
+ALE Spearman rho: nan
+PD L2: nan
+PD L1: nan
+PD max diff: nan
+PD Spearman rho: nan
+PD optimised on ALE L2: nan
+PD optimised on ALE L1: nan
+PD optimised on ALE max diff: nan
+PD optimised on ALE Spearman rho: nan
+ALE optimised on PD L2: 3.483832326013535e-06
+ALE optimised on PD L1: 0.001775398200729939
+ALE optimised on PD max diff: 0.001962282221859406
+ALE optimised on PD Spearman rho: nan

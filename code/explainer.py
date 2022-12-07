@@ -14,15 +14,18 @@ class Explainer:
         self.constrain = constrain
         if constrain:
             self.normalizator = [
-                lambda x, c=c: (x - data_copy[c].min())
-                / (data_copy[c].max() - data_copy[c].min())
-                for c in data_copy.columns
+                lambda x, c=c: (x - self.original_data[c].min())
+                / (self.original_data[c].max() - self.original_data[c].min())
+                for c in self.original_data.columns
             ]
+            # print(self.normalizator[0](29))
+            # assert False
 
             self.unnormalizator = [
-                lambda x, c=c: x * (data_copy[c].max() - data_copy[c].min())
-                + data_copy[c].min()
-                for c in data_copy.columns
+                lambda x, c=c: x
+                * (self.original_data[c].max() - self.original_data[c].min())
+                + self.original_data[c].min()
+                for c in self.original_data.columns
             ]
 
             for i, column in enumerate(data_copy.columns):
@@ -84,7 +87,7 @@ class Explainer:
                     )
 
         try:
-            pred = self.predict(data_copy.values)
+            pred = self.predict_normalized(data_copy.values)
         except:
             raise ValueError("`predict_function(model, data)` returns an error.")
         if not isinstance(pred, np.ndarray):
@@ -100,14 +103,15 @@ class Explainer:
                 + ", and it must return a (1d) numpy.ndarray."
             )
 
-    def predict(self, data):
-        if self.constrain:
-            data_copy = deepcopy(data)
-            for i in range(data_copy.shape[1]):
-                data_copy[:, i] = sigmoid(data_copy[:, i])
-                data_copy[:, i] = self.unnormalizator[i](data_copy[:, i])
-            return self.predict_function(self.model, data_copy)
+    def predict_unnormalized(self, data):
         return self.predict_function(self.model, data)
+
+    def predict_normalized(self, data):
+        data_copy = deepcopy(data)
+        for i in range(data_copy.shape[1]):
+            data_copy[:, i] = sigmoid(data_copy[:, i])
+            data_copy[:, i] = self.unnormalizator[i](data_copy[:, i])
+        return self.predict_function(self.model, data_copy)
 
     # ************* pd *************** #
 
@@ -131,33 +135,9 @@ class Explainer:
         # merge X and grid in long format
         X_long[:, [idv]] = grid_long
         # calculate ceteris paribus
-        y_long = self.predict(X_long)
+        y_long = self.predict_normalized(X_long)
         # calculate partial dependence
         y = y_long.reshape(X.shape[0], grid_points).mean(axis=0)
-
-        return y
-
-    def pd_pop(self, X_pop, idv, grid):
-        """
-        vectorized (whole population) pd calculation for 1 variable
-        """
-        grid_points = len(grid)
-        # take grid_points of each observation in X
-        X_pop_long = np.repeat(X_pop, grid_points, axis=1)
-        # take grid for each observation
-        grid_pop_long = np.tile(
-            grid.reshape((-1, 1)), (X_pop.shape[0], X_pop.shape[1], 1)
-        )
-        # merge X and grid in long format
-        X_pop_long[:, :, [idv]] = grid_pop_long
-        # calculate ceteris paribus
-        y_pop_long = self.predict(
-            X_pop_long.reshape(
-                X_pop_long.shape[0] * X_pop_long.shape[1], X_pop_long.shape[2]
-            )
-        ).reshape((X_pop_long.shape[0], X_pop.shape[1], grid_points))
-        # calculate partial dependence
-        y = y_pop_long.mean(axis=1)
 
         return y
 
@@ -183,12 +163,12 @@ class Explainer:
         bins = grid_copy
 
         X_copy_2 = deepcopy(X_copy)
-
+        
         b = np.digitize(X[:, idv_copy], bins, right=True)
 
         X_copy[:, idv_copy] = grid_copy[b - 1]
         X_copy_2[:, idv_copy] = grid_copy[b]
-        diff = self.predict(X_copy_2) - self.predict(X_copy)
+        diff = self.predict_normalized(X_copy_2) - self.predict_normalized(X_copy)
 
         local_effects = np.nan_to_num(
             np.bincount(b - 1, weights=diff, minlength=20)
@@ -200,6 +180,9 @@ class Explainer:
         z = deepcopy(y)
         z = np.append(z, [z[-1]]) - c
 
+        # print("X", X_copy[:,3:])
+        # print("b", b)
+        # print("bins", bins)
         return z
 
 
