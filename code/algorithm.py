@@ -220,6 +220,7 @@ class Algorithm:
                     .reset_index(drop=True)
                 )
             )
+
         if not constant and self._idc is not None:
             _df = _df.drop(_df.columns[self._idc], axis=1)
         ax = sns.pairplot(_df, hue="dataset", height=height, palette=_colors)
