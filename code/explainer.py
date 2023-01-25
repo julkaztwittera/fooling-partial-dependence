@@ -170,6 +170,8 @@ class Explainer:
         returns:
         y - np.ndarray (1d), vector of pd profile values
         """
+        if not isinstance(X, np.ndarray):
+            X = X.numpy()
 
         import copy
 
