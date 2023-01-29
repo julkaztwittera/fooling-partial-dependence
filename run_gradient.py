@@ -131,7 +131,7 @@ if __name__ == "__main__":
     )
     model.fit(X, y, batch_size=32, epochs=50, verbose=1)
 
-    explainer = code.Explainer(model, X, constrain=args.constrain)
+    explainer = code.Explainer(model, X)
 
     alg = code.GradientAlgorithm(
         explainer,
