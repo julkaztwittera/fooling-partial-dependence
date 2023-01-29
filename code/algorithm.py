@@ -13,7 +13,7 @@ class Algorithm:
         variable,
         constant=None,
         n_grid_points=21,
-        explanation_names=["pd", "ale", "ale_dalex", "pd_tf"],
+        explanation_names=["pd", "ale", "ale_dalex", "pd_tf", "ale_tf"],
     ):
 
         self.explainer = explainer
@@ -45,10 +45,10 @@ class Algorithm:
 
 # data shape: (nsamples, nfeatures)
 
-        self.iter_losses["loss"]["pd"] = []
-        self.iter_losses["loss"]["pd_tf"] = []
+        self.iter_losses["loss"]["ale"] = []
+        self.iter_losses["loss"]["ale_tf"] = []
 
-        self.iter_explanations["pd"] = {}
+        self.iter_explanations["ale"] = {}
 
         self.result_data = {}
 
@@ -64,12 +64,6 @@ class Algorithm:
                     self._X[:, self._idv].max(),
                     self._n_grid_points,
                 )
-                # if self.explainer.constrain:
-                #     result_explanation["grid_original"] = np.linspace(
-                #                         self._X_original[:, self._idv].min(),
-                #                         self._X_original[:, self._idv].max(),
-                #                         self._n_grid_points,
-                #     )
         else:
             NotImplementedError()
             if not isinstance(grid, np.ndarray):
@@ -151,6 +145,11 @@ class Algorithm:
                         palette=sns.color_palette("Set1").as_hex()[0:2][::-1],
                     )
                 else:
+                    print(explanation_name)
+                    print(result_explanation['grid'].shape)
+                    print(result_explanation['original'].shape)
+                    print(result_explanation['changed'].shape)
+                    print(result_explanation['target'].shape)
                     _df = pd.DataFrame(result_explanation).set_index("grid")
                     if "target" not in _df.columns:
                         sns.lineplot(
@@ -279,7 +278,7 @@ class Algorithm:
 
     def plot_data(self, i=0, constant=True, height=2, savefig=None):
         # for explanation_name in self.result_explanations.keys():
-        for explanation_name in ("pd_tf", ):
+        for explanation_name in ("ale_tf", ):
             plt.rcParams["legend.handlelength"] = 0.1
             _colors = sns.color_palette("Set1").as_hex()[0:2][::-1]
             if i == 0:
@@ -313,7 +312,7 @@ class Algorithm:
 
     def plot_losses(self, lw=3, figsize=(9, 6), savefig=None):
         # for explanation_name in self.iter_losses["loss"].keys():
-        for explanation_name in ("pd_tf", ):
+        for explanation_name in ("ale_tf", ):
             plt.rcParams["figure.figsize"] = figsize
             plt.plot(
                 self.iter_losses["iter"],

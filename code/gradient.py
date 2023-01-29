@@ -44,7 +44,7 @@ class GradientAlgorithm(algorithm.Algorithm):
             stop_iter=10,
             learning_rate=learning_rate,
             optimizer=utils.AdamOptimizer(),
-            dist_weight = 0,
+            dist_weight=0,
         )
 
         for k, v in kwargs.items():
@@ -72,7 +72,7 @@ class GradientAlgorithm(algorithm.Algorithm):
         #     zip(self.result_explanations.keys(), self.result_explanations.values())
         # ):
         j = 0
-        explanation_name = "pd_tf"
+        explanation_name = "ale"
         result_explanation = self.result_explanations[explanation_name]
 
         if aim is False:
@@ -96,6 +96,13 @@ class GradientAlgorithm(algorithm.Algorithm):
         pbar = tqdm.tqdm(range(1, max_iter + 1), disable=not verbose)
         for i in pbar:
             # gradient of output w.r.t input
+            print(self.explainer.ale(
+                self._X_changed, self._idv, result_explanation["grid"]
+            ))
+            print(self.explainer.ale_tf(
+                self._X_changed, self._idv, result_explanation["grid"]
+            ))
+
             result_explanation["changed"] = explanation_func(
                 self._X_changed, self._idv, result_explanation["grid"]
             )
@@ -124,10 +131,6 @@ class GradientAlgorithm(algorithm.Algorithm):
 
         # self.result_data[explanation_name] = self._X_changed
         _X_changed = deepcopy(self._X_changed)
-        # if self.explainer.constrain:
-        #     for i in range(_X_changed.shape[1]):
-        #         _X_changed[:,i] = sigmoid(_X_changed[:,i])
-        #         _X_changed[:,i] = self.explainer.unnormalizator[i](_X_changed[:,i])
 
         _data_changed = pd.DataFrame(
             _X_changed, columns=self.explainer.data.columns
@@ -144,8 +147,6 @@ class GradientAlgorithm(algorithm.Algorithm):
         self.result_explanations["pd"]["changed"] = self.explainer.pd(
             X=self._X_changed, idv=self._idv, grid=result_explanation["grid"]
         )
-
-        
 
         self.result_data[explanation_name] = (
             pd.concat((self.explainer.original_data, _data_changed))
@@ -186,76 +187,13 @@ class GradientAlgorithm(algorithm.Algorithm):
 
         with tf.GradientTape() as t:
             t.watch(input)
-            explanation = self.explainer.pd_tf(X=input, idv=self._idv, grid=self.result_explanations["pd"]["grid"])
-            loss_expl = loss.loss_tf(self.result_explanations["pd"]["target"], explanation, self._aim, self._center)
+            explanation = self.explainer.ale_tf(X=input, idv=self._idv, grid=self.result_explanations["ale"]["grid"])
+            loss_expl = loss.loss_tf(self.result_explanations["ale"]["target"], explanation, self._aim, self._center)
             loss_data = loss.loss_dist(self._X_original, input)
-            loss_ = loss_expl + self.params["dist_weight"] * loss_data
+            loss_ = loss_expl + tf.cast(self.params["dist_weight"] * loss_data, tf.double)
             d_output_input = t.gradient(loss_, input)
             
         return d_output_input
-
-    def _calculate_gradient(self, data):
-        # gradient of output w.r.t input
-        input = tf.convert_to_tensor(data)
-        with tf.GradientTape() as t:
-            t.watch(input)
-            output = self.explainer.model(input)
-            d_output_input = t.gradient(output, input).numpy()
-        return d_output_input
-
-    def _calculate_gradient_long(self, result_explanation, data):
-        # gradient of output w.r.t input with changed idv to splits
-        data_copy = deepcopy(data)
-        if self.explainer.constrain:
-            for i in range(data_copy.shape[1]):
-                data_copy[:, i] = sigmoid(data_copy[:, i])
-                data_copy[:, i] = self.explainer.unnormalizator[i](data_copy[:, i])
-
-        data_long = np.repeat(data_copy, self._n_grid_points, axis=0)
-        # take splits for each observation
-        grid_long = np.tile(result_explanation["grid"], self._n)
-        data_long[:, self._idv] = grid_long
-        # merge X and splits in long format
-        d_output_input_long = self._calculate_gradient(data_long)
-        return d_output_input_long
-
-    def _calculate_gradient_loss(self, result_explanation, d):
-        # d = d_output_input_long
-        d = d.reshape(self._n, self._n_grid_points, self._p)
-        if self._aim:
-            d_loss = (
-                d
-                * (
-                    result_explanation["changed"].numpy() - result_explanation["target"].numpy()
-                ).reshape(1, -1, 1)
-            ).mean(axis=1)
-        else:
-            if self._center:
-                d_loss = -(
-                    (d - d.mean(axis=1).reshape(self._n, 1, self._p))
-                    * (
-                        (
-                            result_explanation["changed"]
-                            - result_explanation["changed"].mean()
-                        )
-                        - (
-                            result_explanation["original"]
-                            - result_explanation["original"].mean()
-                        )
-                    ).reshape(1, -1, 1)
-                ).mean(axis=1)
-            else:
-                d_loss = -(
-                    d
-                    * (
-                        result_explanation["changed"] - result_explanation["original"]
-                    ).reshape(1, -1, 1)
-                ).mean(axis=1)
-        d_loss = d_loss / self._n
-        d_loss[:, self._idv] = 0
-        if self._idc is not None:
-            d_loss[:, self._idc] = 0
-        return d_loss
 
     def _initialize(self):
         _X_std = self._X.std(axis=0) * 1 / 9
@@ -279,16 +217,14 @@ class GradientAlgorithm(algorithm.Algorithm):
         )
 
         loss_data = loss.loss_dist(self._X_original, self._X_changed)
-        _loss += self.params["dist_weight"] * loss_data
+        _loss += tf.cast(self.params["dist_weight"] * loss_data, tf.double)
 
         if i is not None:
             self.iter_losses["iter"].append(i)
         self.iter_losses["loss"][explanation_name].append(_loss)
 
     def append_explanations(self, explanation_name, i=0):
-        self.iter_explanations[explanation_name][i] = self.result_explanations[
-            explanation_name
-        ]["changed"]
+        self.iter_explanations[explanation_name][i] = self.result_explanations[explanation_name]["changed"]
 
     def get_metrics(self, args, save_path=None, all_results_csv="results_final/all_rows.csv"):
         output_str = ""

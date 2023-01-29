@@ -7,32 +7,11 @@ import dalex as dx
 
 
 class Explainer:
-    def __init__(self, model, data, predict_function=None, constrain=False):
+    def __init__(self, model, data, predict_function=None):
         self.model = model
 
         self.original_data = data
         data_copy = deepcopy(data)
-        self.constrain = constrain
-        if constrain:
-            self.normalizator = [
-                lambda x, c=c: (x - data_copy[c].min())
-                / (data_copy[c].max() - data_copy[c].min())
-                for c in data_copy.columns
-            ]
-
-            self.unnormalizator = [
-                lambda x, c=c: x * (data_copy[c].max() - data_copy[c].min())
-                + data_copy[c].min()
-                for c in data_copy.columns
-            ]
-
-            for i, column in enumerate(data_copy.columns):
-                data_copy[column] = self.normalizator[i](data_copy[column])
-
-                data_copy.loc[data_copy[column] > 0.999, column] = 1.0 - 1e-9
-                data_copy.loc[data_copy[column] < 0.001, column] = 1e-9
-
-                data_copy[column] = logit(data_copy[column])
 
         if isinstance(data_copy, pd.DataFrame):
             self.data = data_copy
@@ -102,12 +81,6 @@ class Explainer:
             )
 
     def predict(self, data):
-        if self.constrain:
-            data_copy = deepcopy(data)
-            for i in range(data_copy.shape[1]):
-                data_copy[:, i] = sigmoid(data_copy[:, i])
-                data_copy[:, i] = self.unnormalizator[i](data_copy[:, i])
-            return self.predict_function(self.model, data_copy)
         return self.predict_function(self.model, data)
 
     # ************* pd *************** #
@@ -161,7 +134,7 @@ class Explainer:
 
     def ale(self, X, idv, grid):
         """
-        numpy implementation of pd calculation for 1 variable
+        numpy implementation of ale calculation for 1 variable
 
         takes:
         X - np.ndarray (2d), data
@@ -198,9 +171,64 @@ class Explainer:
 
         c = np.dot(np.bincount(b - 1), y) / X_copy.shape[0]
         z = deepcopy(y)
-        z = np.append(z, [z[-1]]) - c
+        z = tf.experimental.numpy.append(z, [z[-1]]) - c
 
         return z
+
+    def ale_tf(self, X, idv, grid):
+        import tensorflow_probability as tfp
+
+        """
+        tf implementation of ale calculation for 1 variable
+
+        takes:
+        X - np.ndarray (2d), data
+        idv - int, index of variable to calculate profile
+
+        returns:
+        y - np.ndarray (1d), vector of pd profile values
+        """
+        def tf_nan_to_num(w):
+            return tf.where(tf.math.is_nan(w), tf.zeros_like(w), w)
+
+        if not isinstance(X, tf.Tensor):
+            X = tf.convert_to_tensor(X)
+
+        grid_copy = deepcopy(grid)
+        X_copy = deepcopy(X)
+        idv_copy = deepcopy(idv)
+
+        grid_copy[0] -= 0.0001
+        grid_copy[-1] += 0.0001
+
+        bins = grid_copy
+
+        X_copy_2 = deepcopy(X_copy)
+
+        b = tfp.stats.find_bins(X[:, idv_copy], bins) + 1
+        b = np.array(b, dtype=int)
+
+        X_copy = tf.squeeze(tf.concat( [ X_copy[:, :idv_copy], tf.expand_dims(grid_copy[b-1], axis=-1), X_copy[:, (idv_copy+1):] ], axis=1))
+
+        X_copy_2 = tf.squeeze( tf.concat([X_copy[:, :idv_copy], tf.expand_dims(grid_copy[b], axis=-1), X_copy[:, (idv_copy + 1):]], axis=1))
+        diff = tf.squeeze(self.model(X_copy_2), axis=1) - tf.squeeze(self.model(X_copy), axis=1)
+
+        b = tf.convert_to_tensor(b, dtype=tf.int32)
+        diff = tf.convert_to_tensor(diff, dtype=tf.float32)
+        local_effects = tf_nan_to_num(
+            tf.math.bincount(b - 1, weights=diff, minlength=20) / tf.math.bincount(b - 1, dtype=tf.float32, minlength=20)
+        )
+        y = tf.math.cumsum(local_effects)
+
+        c = tf.reduce_sum(tf.math.bincount(b - 1, dtype=tf.float32) * y) / X_copy.shape[0]
+        z = deepcopy(y)
+
+        a = tf.cast(tf.concat([z, tf.convert_to_tensor([z[-1]])], axis=0), tf.float32)
+        b = tf.cast(tf.convert_to_tensor(c), tf.float32)
+
+        z = a - tf.cast(tf.convert_to_tensor(c), tf.float32) #tf.convert_to_tensor([c])
+
+        return tf.cast(z, tf.double)
 
     def ale_dalex(self, X, idv, grid):
         explainer = dx.Explainer(self.model, X, predict_function=self.predict_function)
